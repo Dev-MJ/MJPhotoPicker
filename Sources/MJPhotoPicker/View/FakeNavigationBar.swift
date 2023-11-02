@@ -9,6 +9,9 @@ import UIKit
 import Combine
 
 final class FakeNavigationBar: UIView {
+    let closeTapPublisher: PassthroughSubject<(), Never> = .init()
+    let titleTapPublisher: PassthroughSubject<(), Never> = .init()
+    
     private let backView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -32,9 +35,6 @@ final class FakeNavigationBar: UIView {
         return b
     }()
     
-    let backButtonTapPublisher: PassthroughSubject<(), Never> = .init()
-    let titleButtonTapPublisher: PassthroughSubject<(), Never> = .init()
-    
     override init(frame: CGRect) {
         super.init(frame: frame)
         self.addSubviews()
@@ -54,12 +54,12 @@ final class FakeNavigationBar: UIView {
         
         self.backButton.addAction(.init(handler: { [weak self] action in
             guard let self = self else { return }
-            self.backButtonTapPublisher.send()
+            self.closeTapPublisher.send()
         }), for: .touchUpInside)
         
         self.titleButton.addAction(.init(handler: { [weak self] action in
             guard let self = self else { return }
-            self.titleButtonTapPublisher.send()
+            self.titleTapPublisher.send()
         }), for: .touchUpInside)
     }
     
@@ -85,4 +85,3 @@ final class FakeNavigationBar: UIView {
         self.titleButton.setTitle(title, for: .normal)
     }
 }
-

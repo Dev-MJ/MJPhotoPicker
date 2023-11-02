@@ -40,11 +40,6 @@ public final class MJPhotoPickerViewController: UIViewController {
         v.allowsSelection = true
         return v
     }()
-    private lazy var progressView: UIProgressView = {
-        let v = UIProgressView(progressViewStyle: .default)
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }()
 
     private weak var childViewController: AssetAlbumListViewController?
     private var viewModel: PhotoPickerViewModel!// = .init()
@@ -99,7 +94,6 @@ public final class MJPhotoPickerViewController: UIViewController {
         view.addSubview(self.backView)
         self.backView.addSubview(self.collectionView)
         self.backView.addSubview(self.fakeNavigationBar)
-        self.backView.addSubview(self.progressView)
     }
     
     private func configureCollectionView() {
@@ -153,7 +147,7 @@ public final class MJPhotoPickerViewController: UIViewController {
                                                       animated: false)
                 }
             })
-            .sink { [weak self] (_, type) in
+            .sink { [weak self] (title, type) in
                 guard let self else { return }
                 DispatchQueue.main.async {
                     switch type {
@@ -162,6 +156,7 @@ public final class MJPhotoPickerViewController: UIViewController {
                     case .custom(let assets):
                         self.viewModel.fetch(from: assets)
                     }
+                    self.fakeNavigationBar.setTitle(title)
                 }
                 
             }.store(in: &subscriptions)
@@ -171,11 +166,11 @@ public final class MJPhotoPickerViewController: UIViewController {
     }
     
     private func bindView() {
-        self.fakeNavigationBar.backButtonTapPublisher
+        self.fakeNavigationBar.closeTapPublisher
             .subscribe(exitPublisher)
             .store(in: &subscriptions)
         
-        self.fakeNavigationBar.titleButtonTapPublisher
+        self.fakeNavigationBar.titleTapPublisher
             .sink { [weak self] in
                 guard let self = self else { return }
                 guard self.children.isEmpty else {
@@ -215,11 +210,6 @@ public final class MJPhotoPickerViewController: UIViewController {
             self.collectionView.bottomAnchor.constraint(equalTo: self.backView.bottomAnchor),
             self.collectionView.leadingAnchor.constraint(equalTo: self.backView.leadingAnchor),
             self.collectionView.topAnchor.constraint(equalTo: self.fakeNavigationBar.bottomAnchor),
-            
-            self.progressView.centerXAnchor.constraint(equalTo: self.backView.centerXAnchor),
-            self.progressView.centerYAnchor.constraint(equalTo: self.backView.centerYAnchor),
-            self.progressView.widthAnchor.constraint(equalTo: self.backView.widthAnchor, multiplier: 0.5),
-            self.progressView.heightAnchor.constraint(equalToConstant: 50),
         ])
     }
     
