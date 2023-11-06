@@ -73,6 +73,7 @@ public final class MJPhotoPickerViewController: UIViewController {
                 self.bindView()
                 self.implementDragSelectable()
                 PHPhotoLibrary.shared().register(self)
+                self.viewModel.fetch()
             }
         }
     }

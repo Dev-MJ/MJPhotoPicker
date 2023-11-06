@@ -19,30 +19,43 @@ final actor PhotoService {
                                                 options: nil)
     }
     
-    static var smartAlbumAnyCollection: PHFetchResult<PHAssetCollection> {
+    static var favoriteCollection: PHFetchResult<PHAssetCollection> {
         PHAssetCollection.fetchAssetCollections(with: .smartAlbum,
-                                                subtype: .any,
+                                                subtype: .smartAlbumFavorites,
                                                 options: nil)
     }
-    
-    static func imageAssets() -> PHFetchResult<PHAsset> {
-        let options = PHFetchOptions()
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        return PHAsset.fetchAssets(with: .image, options: options)
+
+    static var mediaTypeCollections: [PHAssetCollection] {
+        let subtypes = PHAssetCollectionSubtype.allCases.filter { $0 != .smartAlbumRecentlyAdded && $0 != .smartAlbumFavorites }
+        return Self.collections(with: .smartAlbum, subtypes: subtypes)
     }
     
-    static func videoAssets() -> PHFetchResult<PHAsset> {
-        let options = PHFetchOptions()
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        return PHAsset.fetchAssets(with: .video, options: options)
+    static func collections(with type: PHAssetCollectionType, subtypes: [PHAssetCollectionSubtype]) -> [PHAssetCollection] {
+        let arrayCollection = subtypes.compactMap {
+            PHAssetCollection.fetchAssetCollections(with: type,
+                                                    subtype: $0,
+                                                    options: nil).firstObject
+        }
+        return Array<PHAssetCollection>(Set(arrayCollection))
     }
-    
-    static func imageAndVideoAssets() -> PHFetchResult<PHAsset> {
-        let options = PHFetchOptions()
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.predicate = NSPredicate(format: "mediaType = %d || mediaType = %d", PHAssetMediaType.video.rawValue, PHAssetMediaType.image.rawValue)
-        return PHAsset.fetchAssets(with: options)
-    }
+//    static func imageAssets() -> PHFetchResult<PHAsset> {
+//        let options = PHFetchOptions()
+//        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+//        return PHAsset.fetchAssets(with: .image, options: options)
+//    }
+//    
+//    static func videoAssets() -> PHFetchResult<PHAsset> {
+//        let options = PHFetchOptions()
+//        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+//        return PHAsset.fetchAssets(with: .video, options: options)
+//    }
+//    
+//    static func imageAndVideoAssets() -> PHFetchResult<PHAsset> {
+//        let options = PHFetchOptions()
+//        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+//        options.predicate = NSPredicate(format: "mediaType = %d || mediaType = %d", PHAssetMediaType.video.rawValue, PHAssetMediaType.image.rawValue)
+//        return PHAsset.fetchAssets(with: options)
+//    }
     
     static func fetchAssets(in collection: PHAssetCollection) -> PHFetchResult<PHAsset> {
         let fetchOptions = PHFetchOptions()

@@ -10,7 +10,6 @@ import SwiftUI
 
 protocol AssetAlbumListViewModelProtocol: ObservableObject {
     var selectedCellModel: AssetAlbumListCellModel? { get }
-    var mediaCellModels: [AssetAlbumListCellModel] { get }
     var albumCellModels: [AssetAlbumListCellModel] { get }
     
     func fetchAlbums()
@@ -33,10 +32,8 @@ final class AssetAlbumListViewModel: AssetAlbumListViewModelProtocol {
     }
     // MARK: For UI
     @Published var selectedCellModel: AssetAlbumListCellModel?
-    @Published var mediaCellModels: [AssetAlbumListCellModel] = []
     @Published var albumCellModels: [AssetAlbumListCellModel] = []
     // MARK: For Business (검색)
-    private var initialMediaCellModels: [AssetAlbumListCellModel] = []
     private var initialAlbumCellModels: [AssetAlbumListCellModel] = []
     
     deinit {
@@ -45,20 +42,16 @@ final class AssetAlbumListViewModel: AssetAlbumListViewModelProtocol {
     
     func fetchAlbums() {
         Task {
-            let albumCollection = PHAssetCollection.fetchAssetCollections(with: .album,
-                                                                          subtype: .any,
-                                                                          options: nil)
-            let anyCollection = PHAssetCollection.fetchAssetCollections(with: .smartAlbum,
-                                                                        subtype: .any,
-                                                                        options: nil)
-            async let albums = albumCellModels(in: albumCollection)
-            async let any = albumCellModels(in: anyCollection)
-            let mediaCellModels = self.allMediaAlbumCellModel() + self.videosAlbumCellModel() + self.imagesAlbumCellModel()
-            let albumCellModels = (await albums) + (await any)
+            let userAlbumCollection = PhotoService.albumsCollection
+            let favoriteCollection = PhotoService.favoriteCollection
+            let mediaTypeCollections = PhotoService.mediaTypeCollections
+            
+            async let userAlbums = albumCellModels(in: userAlbumCollection)
+            async let favoriteAlbum = albumCellModels(in: favoriteCollection)
+            async let mediaTypeAlbums = albumCellModels(in: mediaTypeCollections)
+            let albumCellModels = (await favoriteAlbum) + (await userAlbums) + (await mediaTypeAlbums)
             Task { @MainActor in
-                self.mediaCellModels = mediaCellModels
                 self.albumCellModels = albumCellModels
-                self.initialMediaCellModels = mediaCellModels
                 self.initialAlbumCellModels = albumCellModels
             }
         }
@@ -66,24 +59,12 @@ final class AssetAlbumListViewModel: AssetAlbumListViewModelProtocol {
     
     private func searchAlbums(text: String) {
         if text.isEmpty {
-            self.mediaCellModels = self.initialMediaCellModels
-                                            .map {
-                                                $0.highlightText = nil
-                                                return $0
-                                            }
             self.albumCellModels = self.initialAlbumCellModels
                                             .map {
                                                 $0.highlightText = nil
                                                 return $0
                                             }
         } else {
-            let media = self.initialMediaCellModels
-                .filter {
-                    $0.title.lowercased().contains(text.lowercased())
-                }.map {
-                    $0.highlightText = text
-                    return $0
-                }
             let album = self.initialAlbumCellModels
                 .filter {
                     $0.title.lowercased().contains(text.lowercased())
@@ -91,7 +72,6 @@ final class AssetAlbumListViewModel: AssetAlbumListViewModelProtocol {
                     $0.highlightText = text
                     return $0
                 }
-            self.mediaCellModels = media + album
             self.albumCellModels = []
         }
     }
@@ -112,32 +92,48 @@ final class AssetAlbumListViewModel: AssetAlbumListViewModelProtocol {
         })
     }
     
-    private func imagesAlbumCellModel() -> [AssetAlbumListCellModel] {
-        let assets = PhotoService.imageAssets()
-        guard let asset = assets.firstObject else { return [] }
-        return [AssetAlbumListCellModel(thumbnailAsset: asset,
-                                        title: Supply.allImagesTitle,
-                                        count: assets.count,
-                                        type: .custom(assets))]
+    private func albumCellModels(in collections: [PHAssetCollection]) async -> [AssetAlbumListCellModel] {
+        return await withCheckedContinuation({ continuation in
+            var cellModels: [AssetAlbumListCellModel] = collections.compactMap {
+                let assets = PHAsset.fetchAssets(in: $0, options: nil)
+                guard let asset = assets.firstObject else {
+                    return nil
+                }
+                return AssetAlbumListCellModel(thumbnailAsset: asset,
+                                               title: $0.localizedTitle ?? "",
+                                               count: assets.count,
+                                               type: .collection($0))
+            }
+            continuation.resume(returning: cellModels)
+        })
     }
     
-    private func videosAlbumCellModel() -> [AssetAlbumListCellModel] {
-        let assets = PhotoService.videoAssets()
-        guard let asset = assets.firstObject else { return [] }
-        return [AssetAlbumListCellModel(thumbnailAsset: asset,
-                                        title: Supply.allVideosTitle,
-                                        count: assets.count,
-                                        type: .custom(assets))]
-    }
-    
-    private func allMediaAlbumCellModel() -> [AssetAlbumListCellModel] {
-        let assets = PhotoService.imageAndVideoAssets()
-        guard let asset = assets.firstObject else { return [] }
-        return [AssetAlbumListCellModel(thumbnailAsset: asset,
-                                        title: Supply.allMediasTitle,
-                                        count: assets.count,
-                                        type: .custom(assets))]
-    }
+//    private func imagesAlbumCellModel() -> [AssetAlbumListCellModel] {
+//        let assets = PhotoService.imageAssets()
+//        guard let asset = assets.firstObject else { return [] }
+//        return [AssetAlbumListCellModel(thumbnailAsset: asset,
+//                                        title: Supply.allImagesTitle,
+//                                        count: assets.count,
+//                                        type: .custom(assets))]
+//    }
+//    
+//    private func videosAlbumCellModel() -> [AssetAlbumListCellModel] {
+//        let assets = PhotoService.videoAssets()
+//        guard let asset = assets.firstObject else { return [] }
+//        return [AssetAlbumListCellModel(thumbnailAsset: asset,
+//                                        title: Supply.allVideosTitle,
+//                                        count: assets.count,
+//                                        type: .custom(assets))]
+//    }
+//    
+//    private func allMediaAlbumCellModel() -> [AssetAlbumListCellModel] {
+//        let assets = PhotoService.imageAndVideoAssets()
+//        guard let asset = assets.firstObject else { return [] }
+//        return [AssetAlbumListCellModel(thumbnailAsset: asset,
+//                                        title: Supply.allMediasTitle,
+//                                        count: assets.count,
+//                                        type: .custom(assets))]
+//    }
     
     func didSelect(cellModel: AssetAlbumListCellModel?) {
         selectedCellModel = cellModel
@@ -146,7 +142,7 @@ final class AssetAlbumListViewModel: AssetAlbumListViewModelProtocol {
 
 final class MockAssetAlbumListViewModel: AssetAlbumListViewModelProtocol {
     @Published var selectedCellModel: AssetAlbumListCellModel?
-    @Published var mediaCellModels: [AssetAlbumListCellModel] = []
+//    @Published var mediaCellModels: [AssetAlbumListCellModel] = []
     @Published var albumCellModels: [AssetAlbumListCellModel] = []
     private var searchText: String = ""
     var searchTextBinding: Binding<String> {
@@ -154,18 +150,6 @@ final class MockAssetAlbumListViewModel: AssetAlbumListViewModelProtocol {
     }
     
     func fetchAlbums() {
-        mediaCellModels = [.init(thumbnailAsset: PHAsset(),
-                                 title: Supply.allMediasTitle,
-                                 count: 200000,
-                                 type: .custom(.init())),
-                           .init(thumbnailAsset: PHAsset(),
-                                 title: Supply.allImagesTitle,
-                                 count: 100000,
-                                 type: .custom(.init())),
-                           .init(thumbnailAsset: PHAsset(),
-                                 title: Supply.allVideosTitle,
-                                 count: 100000,
-                                 type: .custom(.init())),]
         albumCellModels = [.init(thumbnailAsset: PHAsset(),
                                  title: "스마트 앨범 ",
                                  count: 10000,
@@ -177,3 +161,36 @@ final class MockAssetAlbumListViewModel: AssetAlbumListViewModelProtocol {
     }
 }
 
+
+extension PHAssetCollectionSubtype: CaseIterable {
+    public static var allCases: [PHAssetCollectionSubtype] {
+        var all: [PHAssetCollectionSubtype] = [.albumRegular,
+                                               .albumSyncedEvent,
+                                               .albumSyncedFaces,
+                                               .albumSyncedAlbum,
+                                               .albumImported,
+                                               .albumMyPhotoStream,
+                                               .albumCloudShared,
+                                               .smartAlbumGeneric,
+                                               .smartAlbumPanoramas,
+                                               .smartAlbumVideos,
+                                               .smartAlbumFavorites,
+                                               .smartAlbumTimelapses,
+                                               .smartAlbumAllHidden,
+                                               .smartAlbumRecentlyAdded,
+                                               .smartAlbumBursts,
+                                               .smartAlbumSlomoVideos,
+                                               .smartAlbumUserLibrary,
+                                               .smartAlbumSelfPortraits,
+                                               .smartAlbumScreenshots,
+                                               .smartAlbumDepthEffect,
+                                               .smartAlbumLivePhotos,
+                                               .smartAlbumAnimated,
+                                               .smartAlbumLongExposures,
+                                               .smartAlbumUnableToUpload]
+        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, *) {
+            all.append(contentsOf: [.smartAlbumRAW, .smartAlbumCinematic])
+        }
+        return all
+    }
+}

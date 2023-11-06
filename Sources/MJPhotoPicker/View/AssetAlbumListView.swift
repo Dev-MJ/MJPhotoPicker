@@ -30,17 +30,6 @@ struct AssetAlbumListView<VM>: View where VM: AssetAlbumListViewModelProtocol {
             
             ScrollView {
                 LazyVStack(alignment: .leading) {
-                    //            List {
-                    ForEach(viewModel.mediaCellModels, id: \.self) { cellModel in
-                        AssetAlbumListCell(cellModel: cellModel)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                viewModel.didSelect(cellModel: cellModel)
-                            }
-                            .frame(height: 68)
-                            
-                    }
-                    
                     if !viewModel.albumCellModels.isEmpty {
                         Text(Supply.albumSectionDividerTitle)
                             .padding(.leading, 16)
